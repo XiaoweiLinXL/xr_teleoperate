@@ -324,8 +324,8 @@ class Dex1_1_Gripper_Controller:
                              dual_gripper_state_out = None, dual_gripper_action_out = None, xr_motion_data_ready_in = None):
         self.running = True
         DELTA_GRIPPER_CMD = 0.18     # The motor rotates 5.4 radians, the clamping jaw slide open 9 cm, so 0.6 rad <==> 1 cm, 0.18 rad <==> 3 mm
-        THUMB_INDEX_DISTANCE_MIN = 5.0
-        THUMB_INDEX_DISTANCE_MAX = 7.0
+        THUMB_INDEX_DISTANCE_MIN = 0.0
+        THUMB_INDEX_DISTANCE_MAX = 1.0
         LEFT_MAPPED_MIN  = 0.0           # The minimum initial motor position when the gripper closes at startup.
         RIGHT_MAPPED_MIN = 0.0           # The minimum initial motor position when the gripper closes at startup.
         # The maximum initial motor position when the gripper closes before calibration (with the rail stroke calculated as 0.6 cm/rad * 9 rad = 5.4 cm).

@@ -1,0 +1,14 @@
+<CycloneDDS>
+  <Domain>
+    <General>
+      <NetworkInterfaceAddress>wlo1</NetworkInterfaceAddress>
+      <AllowMulticast>false</AllowMulticast>
+    </General>
+    <Discovery>
+      <Peers>
+        <Peer Address="192.168.10.62"/>
+      </Peers>
+      <ParticipantIndex>auto</ParticipantIndex>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

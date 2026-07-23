@@ -122,6 +122,8 @@ class G1_29_ArmController:
         self.msg.mode_machine = self.get_mode_machine()
 
         self.all_motor_q = self.get_current_motor_q()
+        self.q_target = self.get_current_dual_arm_q()
+        self.waist_yaw_target = float(self.all_motor_q[G1_29_JointIndex.kWaistYaw])
         logger_mp.debug(f"Current all body motor state q:\n{self.all_motor_q} \n")
         logger_mp.debug(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...")
@@ -183,6 +185,7 @@ class G1_29_ArmController:
             with self.ctrl_lock:
                 arm_q_target     = self.q_target
                 arm_tauff_target = self.tauff_target
+                waist_target     = self.waist_yaw_target
 
             if self.simulation_mode:
                 cliped_arm_q_target = arm_q_target
@@ -192,7 +195,12 @@ class G1_29_ArmController:
             for idx, id in enumerate(G1_29_JointArmIndex):
                 self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
-                self.msg.motor_cmd[id].tau = arm_tauff_target[idx]   
+                self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
+
+            waist_current = self.msg.motor_cmd[G1_29_JointIndex.kWaistYaw].q
+            diff = waist_target - waist_current
+            max_step = 0.8 * self.control_dt  # 0.8 rad/s
+            self.msg.motor_cmd[G1_29_JointIndex.kWaistYaw].q = waist_current + max(min(diff, max_step), -max_step)
 
             self.msg.crc = self.crc.Crc(self.msg)
             self.lowcmd_publisher.Write(self.msg)
@@ -214,10 +222,15 @@ class G1_29_ArmController:
             self.q_target = q_target
             self.tauff_target = tauff_target
 
+    def set_waist_yaw(self, target_rad):
+        '''Set waist yaw target in radians (clamped to ±1.57 rad).'''
+        with self.ctrl_lock:
+            self.waist_yaw_target = float(np.clip(target_rad, -1.57, 1.57))
+
     def get_mode_machine(self):
         '''Return current dds mode machine.'''
         return self.lowstate_subscriber.Read().mode_machine
-    
+
     def get_current_motor_q(self):
         '''Return current state q of all body motors.'''
         return np.array([self.lowstate_buffer.GetData().motor_state[id].q for id in G1_29_JointIndex])
@@ -229,7 +242,11 @@ class G1_29_ArmController:
     def get_current_dual_arm_dq(self):
         '''Return current state dq of the left and right arm motors.'''
         return np.array([self.lowstate_buffer.GetData().motor_state[id].dq for id in G1_29_JointArmIndex])
-    
+
+    def get_current_waist_yaw(self):
+        '''Return current measured waist yaw in radians.'''
+        return float(self.lowstate_buffer.GetData().motor_state[G1_29_JointIndex.kWaistYaw].q)
+
     def ctrl_dual_arm_go_home(self):
         '''Move both the left and right arms of the robot to their home position by setting the target joint angles (q) and torques (tau) to zero.'''
         logger_mp.info("[G1_29_ArmController] ctrl_dual_arm_go_home start...")
@@ -404,6 +421,7 @@ class G1_23_ArmController:
         self.msg.mode_machine = self.get_mode_machine()
 
         self.all_motor_q = self.get_current_motor_q()
+        self.q_target = self.get_current_dual_arm_q()
         logger_mp.info(f"Current all body motor state q:\n{self.all_motor_q} \n")
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...")
@@ -678,6 +696,7 @@ class H1_2_ArmController:
         self.msg.mode_machine = self.get_mode_machine()
 
         self.all_motor_q = self.get_current_motor_q()
+        self.q_target = self.get_current_dual_arm_q()
         logger_mp.info(f"Current all body motor state q:\n{self.all_motor_q} \n")
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...")
@@ -954,6 +973,7 @@ class H1_ArmController:
         self.msg.gpio = 0
 
         self.all_motor_q = self.get_current_motor_q()
+        self.q_target = self.get_current_dual_arm_q()
         logger_mp.info(f"Current all body motor state q:\n{self.all_motor_q} \n")
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...")
@@ -1175,6 +1195,7 @@ class H2_ArmController:
         self.msg.mode_machine = self.get_mode_machine()
 
         self.all_motor_q = self.get_current_motor_q()
+        self.q_target = self.get_current_dual_arm_q()
         logger_mp.debug(f"Current all body motor state q:\n{self.all_motor_q} \n")
         logger_mp.debug(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...")

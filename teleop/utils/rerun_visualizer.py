@@ -145,7 +145,7 @@ class RerunLogger:
             if part != "body" and state_info:
                 values = state_info.get('qpos', [])
                 for idx, val in enumerate(values):
-                    rr.log(f"{self.prefix}{part}/states/qpos/{idx}", rr.Scalar(val))
+                    rr.log(f"{self.prefix}{part}/states/qpos/{idx}", rr.Scalars(val))
 
         # Log actions
         actions = item_data.get('actions', {}) or {}
@@ -153,7 +153,7 @@ class RerunLogger:
             if part != "body" and action_info:
                 values = action_info.get('qpos', [])
                 for idx, val in enumerate(values):
-                    rr.log(f"{self.prefix}{part}/actions/qpos/{idx}", rr.Scalar(val))
+                    rr.log(f"{self.prefix}{part}/actions/qpos/{idx}", rr.Scalars(val))
 
         # # Log colors (images)
         # colors = item_data.get('colors', {}) or {}

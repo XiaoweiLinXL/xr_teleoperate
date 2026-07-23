@@ -36,9 +36,9 @@ class LocoClientWrapper:
         self.client.SetTimeout(0.0001)
         self.client.Init()
 
-    def Enter_Damp_Mode(self):
+    def Damp(self):
         self.client.Damp()
-    
+
     def Move(self, vx, vy, vyaw):
         self.client.Move(vx, vy, vyaw, continous_move=False)
 

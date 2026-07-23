@@ -77,6 +77,7 @@ class EpisodeWriter():
                     "right_arm":  [],
                     "right_ee": [],
                     "body":       [],
+                    "waist":      [],
                 },
 
                 "tactile_names": {
@@ -169,6 +170,8 @@ class EpisodeWriter():
         # Save images
         if colors:
             for idx_color, (color_key, color) in enumerate(colors.items()):
+                if color is None:
+                    continue
                 color_name = f'{str(idx).zfill(6)}_{color_key}.jpg'
                 if not cv2.imwrite(os.path.join(self.color_dir, color_name), color):
                     logger_mp.info(f"Failed to save color image.")

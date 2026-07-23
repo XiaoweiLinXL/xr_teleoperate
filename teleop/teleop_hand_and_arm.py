@@ -79,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument('--arm', type=str, choices=['G1_29', 'G1_23', 'H1_2', 'H1', 'H2', 'R1_A5', 'R1_A7'], default='G1_29', help='Select arm controller')
     parser.add_argument('--ee', type=str, choices=['dex1', 'dex3', 'inspire_ftp', 'inspire_dfx', 'brainco'], help='Select end effector controller')
     # network parameters
-    parser.add_argument('--img-server-ip', type=str, default='192.168.123.164', help='IP address of image server, used by teleimager and televuer')
+    parser.add_argument('--img-server-ip', type=str, default='10.1.10.90', help='IP address of image server, used by teleimager and televuer')
     parser.add_argument('--network-interface', type=str, default=None, help='Network interface for dds communication, e.g., eth0, wlan0. If None, use default interface.')
     # mode flags
     parser.add_argument('--motion', action = 'store_true', help = 'Enable motion control mode')
@@ -267,21 +267,37 @@ if __name__ == '__main__':
                                      frequency = args.frequency, 
                                      rerun_log = not args.headless)
 
+        # waist_yaw_offset accumulates the delta commanded via right thumbstick Y (G1_29 only)
+        waist_yaw_offset = getattr(arm_ctrl, 'waist_yaw_target', 0.0)
+
         logger_mp.info("----------------------------------------------------------------")
-        logger_mp.info("🟢  Press [r] to start syncing the robot with your movements.")
+        logger_mp.info("🟢  Press [r] or Quest Right-B to start syncing the robot with your movements.")
         if args.record:
-            logger_mp.info("🟡  Press [s] to START or SAVE recording (toggle cycle).")
+            logger_mp.info("🟡  Press [s] or L3 (left stick click) to START or SAVE recording (toggle cycle).")
         else:
             logger_mp.info("🔵  Recording is DISABLED (run with --record to enable).")
-        logger_mp.info("🔴  Press [q] to stop and exit the program.")
+        logger_mp.info("🔴  Press [q] or Quest Right-A to stop and exit the program.")
+        if args.arm == "G1_29" and args.input_mode == "controller":
+            logger_mp.info("🔄  Left-Y / Left-X: step waist left / right (0.15 rad per press).")
         logger_mp.info("⚠️  IMPORTANT: Please keep your distance and stay safe.")
         READY = True                  # now ready to (1) enter START state
+        _prev_right_a = False
+        _prev_right_b = False
+        _prev_l3      = False
         while not START and not STOP: # wait for start or stop signal.
             time.sleep(0.033)
             if camera_config['head_camera']['enable_zmq'] and xr_need_local_img:
                 head_img = img_client.get_head_frame()
                 if head_img.bgr is not None:
                     tv_wrapper.render_to_xr(head_img.bgr)
+            if args.input_mode == "controller":
+                _tele = tv_wrapper.get_tele_data()
+                if _tele.right_ctrl_bButton and not _prev_right_b:
+                    START = True
+                if _tele.right_ctrl_aButton and not _prev_right_a:
+                    STOP = True
+                _prev_right_a = _tele.right_ctrl_aButton
+                _prev_right_b = _tele.right_ctrl_bButton
 
         logger_mp.info("---------------------🚀start Tracking🚀-------------------------")
         arm_ctrl.speed_gradual_max()
@@ -337,10 +353,11 @@ if __name__ == '__main__':
                 with right_gripper_squeeze_in.get_lock():
                     right_gripper_squeeze_in.value = tele_data.right_ctrl_squeezeValue
             elif args.ee == "dex1" and args.input_mode == "controller":
-                with left_gripper_value.get_lock():
-                    left_gripper_value.value = tele_data.left_ctrl_triggerValue
-                with right_gripper_value.get_lock():
-                    right_gripper_value.value = tele_data.right_ctrl_triggerValue
+                if START:
+                    with left_gripper_value.get_lock():
+                        left_gripper_value.value = tele_data.left_ctrl_triggerValue
+                    with right_gripper_value.get_lock():
+                        right_gripper_value.value = tele_data.right_ctrl_triggerValue
             elif args.ee == "dex1" and args.input_mode == "hand":
                 with left_gripper_value.get_lock():
                     left_gripper_value.value = tele_data.left_hand_pinchValue
@@ -351,19 +368,37 @@ if __name__ == '__main__':
             with xr_motion_data_ready.get_lock():
                 xr_motion_data_ready.value = tele_data.motion_data_ready
             
-            # high level control
-            if args.input_mode == "controller" and args.motion:
-                # quit teleoperate
-                if tele_data.right_ctrl_aButton:
+            # controller button controls (independent of --motion flag)
+            if args.input_mode == "controller":
+                if tele_data.right_ctrl_aButton and not _prev_right_a:
                     START = False
                     STOP = True
+                if tele_data.right_ctrl_bButton and not _prev_right_b:
+                    START = not START
+                    if START:
+                        logger_mp.info("▶️  Teleop resumed.")
+                        arm_ctrl.speed_gradual_max()
+                    else:
+                        logger_mp.info("⏸️  Teleop paused.")
+                if args.record and tele_data.left_ctrl_thumbstick and not _prev_l3:
+                    RECORD_TOGGLE = True
+                if args.arm == "G1_29":
+                    if tele_data.left_ctrl_bButton:
+                        waist_yaw_offset = max(waist_yaw_offset - 0.5 / args.frequency, -1.57)
+                        arm_ctrl.set_waist_yaw(waist_yaw_offset)
+                    elif tele_data.left_ctrl_aButton:
+                        waist_yaw_offset = min(waist_yaw_offset + 0.5 / args.frequency, 1.57)
+                        arm_ctrl.set_waist_yaw(waist_yaw_offset)
+                _prev_right_a = tele_data.right_ctrl_aButton
+                _prev_right_b = tele_data.right_ctrl_bButton
+                _prev_l3      = tele_data.left_ctrl_thumbstick
+
+            # high level control (locomotion)
+            if args.input_mode == "controller" and args.motion:
                 # command robot to enter damping mode. soft emergency stop function
                 if tele_data.left_ctrl_thumbstick and tele_data.right_ctrl_thumbstick:
                     loco_wrapper.Damp()
-                # https://github.com/unitreerobotics/xr_teleoperate/issues/135, control, limit velocity to within 0.3
-                loco_wrapper.Move(-tele_data.left_ctrl_thumbstickValue[1] * 0.3,
-                                  -tele_data.left_ctrl_thumbstickValue[0] * 0.3,
-                                  -tele_data.right_ctrl_thumbstickValue[0]* 0.3)
+
 
             # get current robot state data.
             current_lr_arm_q  = arm_ctrl.get_current_dual_arm_q()
@@ -374,7 +409,8 @@ if __name__ == '__main__':
             sol_q, sol_tauff  = arm_ik.solve_ik(tele_data.left_wrist_pose, tele_data.right_wrist_pose, current_lr_arm_q, current_lr_arm_dq)
             time_ik_end = time.time()
             logger_mp.debug(f"ik:\t{round(time_ik_end - time_ik_start, 6)}")
-            arm_ctrl.ctrl_dual_arm(sol_q, sol_tauff)
+            if START:
+                arm_ctrl.ctrl_dual_arm(sol_q, sol_tauff)
 
             # record data
             if args.record:
@@ -440,36 +476,36 @@ if __name__ == '__main__':
                     colors = {}
                     depths = {}
                     if camera_config['head_camera']['binocular']:
-                        if head_img is not None:
+                        if head_img is not None and head_img.bgr is not None:
                             colors[f"color_{0}"] = head_img.bgr[:, :camera_config['head_camera']['image_shape'][1]//2]
                             colors[f"color_{1}"] = head_img.bgr[:, camera_config['head_camera']['image_shape'][1]//2:]
                         else:
-                            logger_mp.warning("Head image is None!")
+                            logger_mp.warning("Head image unavailable — frame dropped from recording.")
                         if camera_config['left_wrist_camera']['enable_zmq']:
-                            if left_wrist_img is not None:
+                            if left_wrist_img is not None and left_wrist_img.bgr is not None:
                                 colors[f"color_{2}"] = left_wrist_img.bgr
                             else:
-                                logger_mp.warning("Left wrist image is None!")
+                                logger_mp.warning("Left wrist image unavailable — frame dropped.")
                         if camera_config['right_wrist_camera']['enable_zmq']:
-                            if right_wrist_img is not None:
+                            if right_wrist_img is not None and right_wrist_img.bgr is not None:
                                 colors[f"color_{3}"] = right_wrist_img.bgr
                             else:
-                                logger_mp.warning("Right wrist image is None!")
+                                logger_mp.warning("Right wrist image unavailable — frame dropped.")
                     else:
-                        if head_img is not None:
+                        if head_img is not None and head_img.bgr is not None:
                             colors[f"color_{0}"] = head_img.bgr
                         else:
-                            logger_mp.warning("Head image is None!")
+                            logger_mp.warning("Head image unavailable — frame dropped from recording.")
                         if camera_config['left_wrist_camera']['enable_zmq']:
-                            if left_wrist_img is not None:
+                            if left_wrist_img is not None and left_wrist_img.bgr is not None:
                                 colors[f"color_{1}"] = left_wrist_img.bgr
                             else:
-                                logger_mp.warning("Left wrist image is None!")
+                                logger_mp.warning("Left wrist image unavailable — frame dropped.")
                         if camera_config['right_wrist_camera']['enable_zmq']:
-                            if right_wrist_img is not None:
+                            if right_wrist_img is not None and right_wrist_img.bgr is not None:
                                 colors[f"color_{2}"] = right_wrist_img.bgr
                             else:
-                                logger_mp.warning("Right wrist image is None!")
+                                logger_mp.warning("Right wrist image unavailable — frame dropped.")
                     states = {
                         "left_arm": {                                                                    
                             "qpos":   left_arm_state.tolist(),    # numpy.array -> list
@@ -518,8 +554,11 @@ if __name__ == '__main__':
                         }, 
                         "body": {
                             "qpos": current_body_action,
-                        }, 
+                        },
                     }
+                    if args.arm == "G1_29":
+                        states["waist"] = {"qpos": [arm_ctrl.get_current_waist_yaw()], "qvel": [], "torque": []}
+                        actions["waist"] = {"qpos": [waist_yaw_offset], "qvel": [], "torque": []}
                     if args.sim:
                         sim_state = sim_state_subscriber.read_data()            
                         recorder.add_item(colors=colors, depths=depths, states=states, actions=actions, sim_state=sim_state)
@@ -538,11 +577,6 @@ if __name__ == '__main__':
         import traceback
         logger_mp.error(traceback.format_exc())
     finally:
-        try:
-            arm_ctrl.ctrl_dual_arm_go_home()
-        except Exception as e:
-            logger_mp.error(f"Failed to ctrl_dual_arm_go_home: {e}")
-        
         try:
             if args.ipc:
                 ipc_server.stop()
