@@ -248,22 +248,24 @@ class G1_29_ArmController:
         return float(self.lowstate_buffer.GetData().motor_state[G1_29_JointIndex.kWaistYaw].q)
 
     def ctrl_dual_arm_go_home(self):
-        '''Move both the left and right arms of the robot to their home position by setting the target joint angles (q) and torques (tau) to zero.'''
+        '''Move arms and waist to home position (all zeros), then release arm_sdk.'''
         logger_mp.info("[G1_29_ArmController] ctrl_dual_arm_go_home start...")
-        max_attempts = 100
+        max_attempts = 200  # up to 10s; waist at 0.8 rad/s needs ~2s for max offset
         current_attempts = 0
         with self.ctrl_lock:
             self.q_target = np.zeros(14)
+            self.waist_yaw_target = 0.0
             # self.tauff_target = np.zeros(14)
-        tolerance = 0.05  # Tolerance threshold for joint angles to determine "close to zero", can be adjusted based on your motor's precision requirements
+        tolerance = 0.05
         while current_attempts < max_attempts:
             current_q = self.get_current_dual_arm_q()
-            if np.all(np.abs(current_q) < tolerance):
+            current_waist = self.get_current_waist_yaw()
+            if np.all(np.abs(current_q) < tolerance) and abs(current_waist) < tolerance:
                 if self.motion_mode:
                     for weight in np.linspace(1, 0, num=101):
                         self.msg.motor_cmd[G1_29_JointIndex.kNotUsedJoint0].q = weight;
                         time.sleep(0.02)
-                logger_mp.info("[G1_29_ArmController] both arms have reached the home position.")
+                logger_mp.info("[G1_29_ArmController] arms and waist have reached home position.")
                 break
             current_attempts += 1
             time.sleep(0.05)
