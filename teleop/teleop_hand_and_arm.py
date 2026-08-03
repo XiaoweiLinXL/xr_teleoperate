@@ -398,6 +398,10 @@ if __name__ == '__main__':
                 # command robot to enter damping mode. soft emergency stop function
                 if tele_data.left_ctrl_thumbstick and tele_data.right_ctrl_thumbstick:
                     loco_wrapper.Damp()
+                else:
+                    loco_wrapper.Move(-tele_data.left_ctrl_thumbstickValue[1] * 0.3,
+                                      -tele_data.left_ctrl_thumbstickValue[0] * 0.3,
+                                      -tele_data.right_ctrl_thumbstickValue[0] * 0.3)
 
 
             # get current robot state data.

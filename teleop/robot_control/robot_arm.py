@@ -166,6 +166,7 @@ class G1_29_ArmController:
                     lowstate.motor_state[id].dq = msg.motor_state[id].dq
                 self.lowstate_buffer.SetData(lowstate)
                 self.lowstate_sub_ready = True
+                self.msg.mode_machine = msg.mode_machine  # keep in sync; stale value rejects arm_sdk
             time.sleep(0.002)
 
     def clip_arm_q_target(self, target_q, velocity_limit):
@@ -466,6 +467,7 @@ class G1_23_ArmController:
                     lowstate.motor_state[id].dq = msg.motor_state[id].dq
                 self.lowstate_buffer.SetData(lowstate)
                 self.lowstate_sub_ready = True
+                self.msg.mode_machine = msg.mode_machine
             time.sleep(0.002)
 
     def clip_arm_q_target(self, target_q, velocity_limit):
@@ -741,6 +743,7 @@ class H1_2_ArmController:
                     lowstate.motor_state[id].dq = msg.motor_state[id].dq
                 self.lowstate_buffer.SetData(lowstate)
                 self.lowstate_sub_ready = True
+                self.msg.mode_machine = msg.mode_machine
             time.sleep(0.002)
 
     def clip_arm_q_target(self, target_q, velocity_limit):
