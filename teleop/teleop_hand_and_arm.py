@@ -273,7 +273,7 @@ if __name__ == '__main__':
         logger_mp.info("----------------------------------------------------------------")
         logger_mp.info("🟢  Press [r] or Quest Right-B to start syncing the robot with your movements.")
         if args.record:
-            logger_mp.info("🟡  Press [s] or L3 (left stick click) to START or SAVE recording (toggle cycle).")
+            logger_mp.info("🟡  Press [s] or R3 (right stick click) to START or SAVE recording (toggle cycle).")
         else:
             logger_mp.info("🔵  Recording is DISABLED (run with --record to enable).")
         logger_mp.info("🔴  Press [q] or Quest Right-A to stop and exit the program.")
@@ -283,7 +283,7 @@ if __name__ == '__main__':
         READY = True                  # now ready to (1) enter START state
         _prev_right_a = False
         _prev_right_b = False
-        _prev_l3      = False
+        _prev_r3      = False
         while not START and not STOP: # wait for start or stop signal.
             time.sleep(0.033)
             if camera_config['head_camera']['enable_zmq'] and xr_need_local_img:
@@ -380,7 +380,7 @@ if __name__ == '__main__':
                         arm_ctrl.speed_gradual_max()
                     else:
                         logger_mp.info("⏸️  Teleop paused.")
-                if args.record and tele_data.left_ctrl_thumbstick and not _prev_l3:
+                if args.record and tele_data.right_ctrl_thumbstick and not _prev_r3:
                     RECORD_TOGGLE = True
                 if args.arm == "G1_29":
                     if tele_data.left_ctrl_bButton:
@@ -391,7 +391,7 @@ if __name__ == '__main__':
                         arm_ctrl.set_waist_yaw(waist_yaw_offset)
                 _prev_right_a = tele_data.right_ctrl_aButton
                 _prev_right_b = tele_data.right_ctrl_bButton
-                _prev_l3      = tele_data.left_ctrl_thumbstick
+                _prev_r3      = tele_data.right_ctrl_thumbstick
 
             # high level control (locomotion)
             if args.input_mode == "controller" and args.motion:
