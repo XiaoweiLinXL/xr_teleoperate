@@ -271,19 +271,19 @@ if __name__ == '__main__':
         waist_yaw_offset = getattr(arm_ctrl, 'waist_yaw_target', 0.0)
 
         logger_mp.info("----------------------------------------------------------------")
-        logger_mp.info("🟢  Press [r] or Quest Right-B to start syncing the robot with your movements.")
+        logger_mp.info("🟢  Press [r] or right controller B button to start syncing the robot with your movements.")
         if args.record:
-            logger_mp.info("🟡  Press [s] or left squeeze (middle finger) to START or SAVE recording (toggle cycle).")
+            logger_mp.info("🟡  Press [s] or right controller middle finger squeeze to START or SAVE recording (toggle cycle).")
         else:
             logger_mp.info("🔵  Recording is DISABLED (run with --record to enable).")
-        logger_mp.info("🔴  Press [q] or Quest Right-A to stop and exit the program.")
+        logger_mp.info("🔴  Press [q] or right controller A button to stop and exit the program.")
         if args.arm == "G1_29" and args.input_mode == "controller":
-            logger_mp.info("🔄  Left-Y / Left-X: step waist left / right (0.15 rad per press).")
+            logger_mp.info("🔄  Left controller Y / X button (thumb): step waist left / right.")
         logger_mp.info("⚠️  IMPORTANT: Please keep your distance and stay safe.")
         READY = True                  # now ready to (1) enter START state
-        _prev_right_a    = False
-        _prev_right_b    = False
-        _prev_left_squeeze = False
+        _prev_right_a     = False
+        _prev_right_b     = False
+        _prev_right_squeeze = False
         while not START and not STOP: # wait for start or stop signal.
             time.sleep(0.033)
             if camera_config['head_camera']['enable_zmq'] and xr_need_local_img:
@@ -380,7 +380,7 @@ if __name__ == '__main__':
                         arm_ctrl.speed_gradual_max()
                     else:
                         logger_mp.info("⏸️  Teleop paused.")
-                if args.record and tele_data.left_ctrl_squeeze and not _prev_left_squeeze:
+                if args.record and tele_data.right_ctrl_squeeze and not _prev_right_squeeze:
                     RECORD_TOGGLE = True
                 if args.arm == "G1_29":
                     if tele_data.left_ctrl_bButton:
@@ -389,9 +389,9 @@ if __name__ == '__main__':
                     elif tele_data.left_ctrl_aButton:
                         waist_yaw_offset = min(waist_yaw_offset + 0.5 / args.frequency, 1.57)
                         arm_ctrl.set_waist_yaw(waist_yaw_offset)
-                _prev_right_a    = tele_data.right_ctrl_aButton
-                _prev_right_b    = tele_data.right_ctrl_bButton
-                _prev_left_squeeze = tele_data.left_ctrl_squeeze
+                _prev_right_a      = tele_data.right_ctrl_aButton
+                _prev_right_b      = tele_data.right_ctrl_bButton
+                _prev_right_squeeze = tele_data.right_ctrl_squeeze
 
             # high level control (locomotion)
             if args.input_mode == "controller" and args.motion:
